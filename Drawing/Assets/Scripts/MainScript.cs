@@ -90,6 +90,7 @@ public class MainScript : MonoBehaviour
 
         Instance = this;
 
+        //initialize image
         tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
         tex.filterMode = FilterMode.Point;
         tex.wrapMode = TextureWrapMode.Clamp;
@@ -104,6 +105,7 @@ public class MainScript : MonoBehaviour
 
         imageSize = new Vector2Int(tex.width, tex.height);
 
+        //initialize camera
         cam = Camera.main;
         cam.orthographicSize = orthoSize = startOrthoSize = ((verticalLarger = imageSize.x < imageSize.y) ? imageSize.y : imageSize.x) * 0.5f;
         maxOrthoSize = orthoSize * 1.5f;
@@ -127,12 +129,14 @@ public class MainScript : MonoBehaviour
     {
         Vector2 mousePosition = Input.mousePosition;
 
+        //screen size changed
         if (Screen.width != screenPixelSize.x || Screen.height != screenPixelSize.y)
         {
             screenPixelSize = new Vector2Int(Screen.width, Screen.height);
             UvDdx();
         }
 
+        //handle cursor state regarding UI
         if (currentEvenSystem.IsPointerOverGameObject())
         {
             if (!wasOverUI)
@@ -159,16 +163,18 @@ public class MainScript : MonoBehaviour
                 dragStartedFromUi = false;
             }
         }
+
+        //update FPS counter
         fpsText.text = (1 / Time.deltaTime).ToString("0");
-        #region CameraMove
+
+        //Camera drag
         if (Input.GetKey(KeyCode.Mouse2))
         {
             Vector2 difference = (mousePosition - mousePos) * ((verticalLarger ? imageSize.y : imageSize.x) * orthoSize / (screenPixelSize.y * startOrthoSize));
             camTrans.position = camPos = LimitImageArea(camPos - difference);
         }
-        #endregion
 
-        #region CameraZoom
+        //Zooming in and outt
         else
         {
             float scroll = Input.mouseScrollDelta.y;
@@ -192,12 +198,11 @@ public class MainScript : MonoBehaviour
             }
         }
         mousePos = mousePosition;
-        #endregion
 
         WorldMousePos = ScreenToWorldPos(mousePosition);
         sizeIndicatorTrans.position = new Vector2(Mathf.Floor(WorldMousePos.x) + .5f, Mathf.Floor(WorldMousePos.y) + .5f);
 
-        #region ShortCuts
+        //Shortcuts
         if (Input.anyKeyDown)
         {
             if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.N))
@@ -221,15 +226,17 @@ public class MainScript : MonoBehaviour
                 ChangeTool(4);
             }
         }
-        #endregion
     }
 
+    //Optimized space conversion
     public Vector2 ScreenToWorldPos(Vector2 screenPos)
     {
         float screenHeight = screenPixelSize.y * 0.5f;
         return new Vector2(camPos.x + ((screenPos.x - screenPixelSize.x * 0.5f) * (orthoSize / screenHeight)), camPos.y + ((screenPos.y - screenHeight) * (orthoSize / screenHeight)));
     }
     private Vector2 LimitImageArea(Vector2 a) => new Vector2(Mathf.Clamp(a.x, 0f, imageSize.x), Mathf.Clamp(a.y, 0f, imageSize.y));
+    
+    //Change to a different tool
     public void ChangeTool(int newTool)
     {
         int current = (int)currentTool;
@@ -262,6 +269,8 @@ public class MainScript : MonoBehaviour
             currentTool = (Tools)newTool;
         }
     }
+
+    //Changes brush radius, updates the sizeIndictatorTexture accordingly
     public void ChangeRadius(float newRadius)
     {
         radius = newRadius > 1 ? newRadius - 0.5f : (newRadius == 1 ? 1.0001f : 0.5f);
@@ -280,6 +289,7 @@ public class MainScript : MonoBehaviour
         UvDdx();
     }
 
+    //Updates the partial derivative of the image UVs
     private void UvDdx()
     {
         Shader.SetGlobalFloat("_Ddx", (orthoSize * 2f) / (screenPixelSize.y * sizeIndicatorSize));
@@ -290,27 +300,5 @@ public class MainScript : MonoBehaviour
         tex.SetPixels32(textureArray);
         tex.Apply();
         image.texture = tex;
-    }
-
-    public void ApplyBrush(Color32[] scndTexArray, int xMin, int xMax, int yMin, int yMax)
-    {
-        for (int x = xMin; x <= xMax; x++)
-        {
-            for (int y = yMin; y <= yMax; y++)
-            {
-                int i = x + y * imageSize.x;
-                Color brushCol = scndTexArray[i];
-                if (brushCol.a != 0)
-                {
-                    Color backgroundColor = textureArray[i];
-                    float inverseAlpha = 1f - brushCol.a;
-                    float outputAlpha = brushCol.a + backgroundColor.a * inverseAlpha;
-                    Color outputColor = (brushCol * brushCol.a + backgroundColor * backgroundColor.a * inverseAlpha) / outputAlpha;
-                    outputColor.a = outputAlpha;
-                    textureArray[i] = outputColor;
-                }
-            }
-        }
-        ApplyChanges();
     }
 }
